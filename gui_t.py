@@ -4,8 +4,15 @@ import model
 import construct_dataset
 import torch
 import numpy as np
+from options import Options
 
-model, vocab = model.load_model("test", "cpu")
+opt = Options().parse()
+
+if opt.load_model_dict:
+    config = None
+else:
+     config = opt
+model, vocab = model.load_model(opt.load_name, "cpu", config)
 model.to("cpu")
 
 model.eval()
@@ -27,28 +34,31 @@ def show_emojis():
     text = entry.get()
     prediction = predict_text(text)
     status = "positive" if prediction > 0.5 else "negative"
-    print(status)
+    print("Prediction:", status)
+    print("Confidence:", prediction)
     # Clear the previous emojis displayed
     canvas.delete("all")
     
     # Display emojis based on the text value
-    x = 50
-    y = 50
-    emoji_char = emoji.emojize(":slightly_smiling_face:")
-    canvas.create_text(x, y, text=emoji_char, font=("Arial", 50))
-
-
+    x = 200
+    y = 100
+    if status == "positive":
+        emoji_char = emoji.emojize("🙂")
+    else:
+         emoji_char = emoji.emojize("🙁")
+    
+    canvas.create_text(x, y, text=emoji_char, font=("Arial", 100))
 
 # Create the main window
 window = tk.Tk()
-window.title("Check Sentiment")
+window.title("LSTM sentiment analysis")
 
 # Create a text entry field
-entry = tk.Entry(window)
-entry.pack()
+entry = tk.Entry(window, width=50)
+entry.pack(pady=40, padx=10)
 
 # Create a button to display the emojis
-button = tk.Button(window, text="Show Emojis", command=show_emojis)
+button = tk.Button(window, text="Check Sentiment", command=show_emojis)
 button.pack()
 
 # Create a canvas to display the emojis

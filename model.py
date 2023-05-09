@@ -110,30 +110,39 @@ class RNN(nn.Module):
             with open(path_p_vocab, 'w') as f:
                 json.dump(vocab, f)
 
-def load_model(load_name, device):
+def load_model(load_name, device, config=None):
     """
     Load model from trained_models folder
     """
     name_model = load_name + "_model.pt"
-    name_dict = load_name + "_dict.json"
     name_vocab = load_name + "_vocab.json"
 
     path_model = pathlib.Path(pathlib.Path.cwd() / "trained_models" / name_model)
-    path_p_dict = pathlib.Path(pathlib.Path.cwd() / "trained_models" / name_dict)
     path_p_vocab = pathlib.Path(pathlib.Path.cwd() / "trained_models" / name_vocab)
 
-    # load hyperparameters
-    p_dict = open(path_p_dict)
-    p_dict = json.load(p_dict)
+    if config is None:
+        name_dict = load_name + "_dict.json"
+        path_p_dict = pathlib.Path(pathlib.Path.cwd() / "trained_models" / name_dict)
+        # load hyperparameters
+        p_dict = open(path_p_dict)
+        p_dict = json.load(p_dict)
+
+        no_layers = p_dict['num_layers']
+        embedding_dim = p_dict['embedding_dim']
+        output_dim = 1
+        hidden_dim = p_dict['hidden_size']
+
+    else:
+        no_layers = config.num_layers
+        embedding_dim = config.embedding_dim
+        output_dim = 1
+        hidden_dim = config.hidden_size
 
     # load hyperparameters
     vocab = open(path_p_vocab)
     vocab = json.load(vocab)
 
-    no_layers = p_dict['num_layers']
-    embedding_dim = p_dict['embedding_dim']
-    output_dim = 1
-    hidden_dim = p_dict['hidden_size']
+    
     vocab_size = len(vocab) + 1
 
     # initialize model with hyperparameters and load weights

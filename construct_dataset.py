@@ -1,17 +1,8 @@
-import numpy as np # linear algebra
-import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import numpy as np
+import pandas as pd
 from nltk.corpus import stopwords 
 from collections import Counter
-import string
 import re
-import seaborn as sns
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-from torch.utils.data import TensorDataset, DataLoader
-from sklearn.model_selection import train_test_split
 from progress.bar import ShadyBar
 
 """class CustomDataset(Dataset):
@@ -96,31 +87,10 @@ def generate_vocabulary(X):
     return onehot_dict
 
 def tokenize(X, y, vocab):
-    """word_list = []
-
-    stop_words = set(stopwords.words('english')) 
-    print()
-    bar = ShadyBar("Tokenizing", max=len(X))
-    for sent in X:
-        bar.next()
-        for word in sent.lower().split():
-            word = preprocess_string(word)
-            if word not in stop_words and word != '':
-                word_list.append(word)
-    bar.finish()
-    corpus = Counter(word_list)
-    # sorting on the basis of most common words
-    corpus_ = sorted(corpus,key=corpus.get,reverse=True)[:1000]
-    # creating a dict
-    onehot_dict = {w:i+1 for i,w in enumerate(corpus_)}"""
-    
-    onehot_dict = vocab
-
-    # tockenize
     X_final = []
     for sent in X:
-            X_final.append([onehot_dict[preprocess_string(word)] for word in sent.lower().split() 
-                                     if preprocess_string(word) in onehot_dict.keys()])
+            X_final.append([vocab[preprocess_string(word)] for word in sent.lower().split() 
+                                     if preprocess_string(word) in vocab.keys()])
             
     y_final = [1 if label =='positive' else 0 for label in y]
     return np.array(X_final), np.array(y_final)

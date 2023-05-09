@@ -153,7 +153,7 @@ def inf_epoch(model, loss_fn, dataloader, early_stopping, logging_index, testing
         model.load_state_dict(torch.load('checkpoint.pt')) # load best model
 
         if opt.save_model:
-            model.save_model("test2")
+            model.save_model(run_name="test2", vocab=vocab)
 
     val_h = model.init_hidden(batch_size)
     val_losses = []
@@ -194,7 +194,6 @@ def initialize_training(config):
     lr = config.learning_rate
     dropout = config.dropout
 
-
     network = RNN(no_layers, vocab_size, hidden_dim, embedding_dim, device=opt.device, drop_prob=dropout, output_dim=output_dim)
     network.to(opt.device)
     print(network)
@@ -203,7 +202,7 @@ def initialize_training(config):
         optimizer = torch.optim.Adam(network.parameters(), lr=lr)
     elif config.optimizer == "SGD":
         optimizer = torch.optim.SGD(network.parameters(), lr=lr)
-    elif config.optimizer == "RMSprop":
+    elif config.optimizer == "AdamW":
         optimizer = torch.optim.adamw(network.parameters(), lr=lr)
     else:
         raise ValueError("Optimizer not recognized. Please choose from Adam, SGD or AdamW.")
@@ -238,7 +237,7 @@ def main():
 
         logging_index_forward_eval = 0 
 
-        inf_epoch(model, valid_loader, early_stopping, logging_index_forward_eval, testing=True)
+        inf_epoch(model, loss_fn, valid_loader, early_stopping, logging_index_forward_eval, testing=True)
     else:
         wandb.agent(sweep_id, sweep_train, count=50)
 main()
