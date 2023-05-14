@@ -14,32 +14,33 @@ from torch import nn
 import numpy as np
 from sweep import SweepHandler
 from progress.bar import ShadyBar
-
+opt = Options().parse()
 X,y = construct_dataset.load_data()
-print("done loading")
-#X, y, vocab = construct_dataset.tokenize(X, y)
-print("done tokenizing")
+
+
 x_train,x_test,y_train,y_test = train_test_split(X,y,stratify=y)
 
-vocab = construct_dataset.generate_vocabulary(x_train)
+class_weights = construct_dataset.get_class_weights(X,y,opt.num_classes)
+print("\nTokenizing...")
+vocab = construct_dataset.generate_vocabulary(x_train, vocab_len=opt.vocab_length)
 x_train, y_train = construct_dataset.tokenize(x_train, y_train, vocab)
 x_test,y_test = construct_dataset.tokenize(x_test, y_test, vocab)
 
-x_train_pad = construct_dataset.pad_items(x_train,500)
-x_test_pad = construct_dataset.pad_items(x_test,500)
+x_train_pad = construct_dataset.pad_items(x_train,opt.pad_length)
+x_test_pad = construct_dataset.pad_items(x_test,opt.pad_length)
 
 # create Tensor datasets
-train_data = TensorDataset(torch.from_numpy(x_train_pad), torch.from_numpy(y_train))
-valid_data = TensorDataset(torch.from_numpy(x_test_pad), torch.from_numpy(y_test))
+train_data = TensorDataset(torch.from_numpy(x_train_pad), torch.LongTensor(y_train))
+valid_data = TensorDataset(torch.from_numpy(x_test_pad), torch.LongTensor(y_test))
 
 # dataloaders
-batch_size = 50
+batch_size = opt.batch_size
 
 # make sure to SHUFFLE your data
 train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size)
 valid_loader = DataLoader(valid_data, shuffle=True, batch_size=batch_size)
 
-opt = Options().parse()
+
 metrics = Metrics()
 
 if opt.wandb_logging or opt.sweep:
@@ -70,51 +71,99 @@ if opt.sweep:
   sweep_config['metric'] = sweep_handler.metric
   sweep_config['parameters'] = sweep_handler.parameters_dict
 
-  sweep_id = wandb.sweep(sweep_config, project="lstm_sweeps_test")
+  sweep_id = wandb.sweep(sweep_config, project="lstm_sweeps_final")
 
-def train_epoch(model, optimizer, loss_fn, train_loader, epoch, logging_index):
-    """
+def train_epoch(model, optimizer, loss_fn, train_loader, valid_loader, epoch, early_stopping):
+    '''
     Train the network for one epoch
-    """
+    '''
+    
     clip = 5
     train_losses = []
     train_acc = 0.0
-    model.train()
+    val_losses = []
+    val_acc = 0.0
     # initialize hidden state 
     h = model.init_hidden(batch_size)
+
+    stop_early = False
+
     print()
-    title = "Epoch: " + str(epoch)
+    title = "Epoch " + str(epoch + 1)
     bar = ShadyBar(title, max=len(train_loader))
+
     for inputs, labels in train_loader:
         bar.next()
-        
-        inputs, labels = inputs.to(opt.device), labels.to(opt.device)   
-        # Creating new variables for the hidden state, otherwise
-        # we'd backprop through the entire training history
-        h = tuple([each.data for each in h])
-        
-        model.zero_grad()
-        output,h = model(inputs,h)
-        
-        # calculate the loss and perform backprop
-        loss = loss_fn(output.squeeze(), labels.float())
-        loss.backward()
-        train_losses.append(loss.item())
-        # calculating accuracy
-        accuracy = metrics.acc(output,labels)
-        train_acc += accuracy
-        #`clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
-        nn.utils.clip_grad_norm_(model.parameters(), clip)
-        optimizer.step()
-    
+        model.train()
+        if inputs.size()[0] == opt.batch_size:
+            inputs, labels = inputs.to(opt.device), labels.to(opt.device)   
+            # Creating new variables for the hidden state, otherwise
+            # we'd backprop through the entire training history
+            h = tuple([each.data for each in h])
+            model.zero_grad()
+            output,h = model(inputs,h)
+            
+            # calculate the loss and perform backprop
+            loss = loss_fn(output, labels)
+            loss.backward()
+            train_losses.append(loss.item())
+            # calculating accuracy
+            accuracy = metrics.acc(output,labels)
+            if opt.wandb_logging or opt.sweep:
+                wandb.log({
+                    "train_loss": loss.item(), 
+                    "train_acc": accuracy})
+            train_acc += accuracy
+            #`clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
+            nn.utils.clip_grad_norm_(model.parameters(), clip)
+            optimizer.step()
+
+        model.eval()
+        with torch.no_grad():
+
+            inputs, labels = next(iter(valid_loader))
+            if inputs.size()[0] == opt.batch_size:
+
+                inputs, labels = inputs.to(opt.device), labels.to(opt.device)
+                h = tuple([each.data for each in h])
+                output, inf_h = model(inputs, h)
+                val_loss = loss_fn(output,labels)
+
+                val_losses.append(val_loss.item())
+                
+                accuracy = metrics.acc(output,labels)
+                if opt.wandb_logging or opt.sweep:
+                    wandb.log({
+                        "val_loss": val_loss.item(), 
+                        "val_acc": accuracy})
+                val_acc += accuracy
+
     bar.finish()
-    return model, logging_index, (sum(train_losses)/len(train_losses)), (train_acc/len(train_loader.dataset))
+    train_acc = train_acc/len(train_loader)
+    train_loss =  sum(train_losses)/len(train_losses)
+
+    val_acc = val_acc/len(train_loader)
+    val_loss =  sum(val_losses)/len(val_losses)
+                 
+    print("Train acc: ", train_acc)
+    print("Train loss: ", train_loss)
+
+    print("Val acc: ", val_acc)
+    print("Val loss: ", val_loss)
+
+    early_stopping(val_loss, model)
+
+    if early_stopping.early_stop:
+        print("Early stopping")
+        stop_early = True
+
+    return model, train_loss, train_acc, val_loss, val_acc, stop_early
 
 def sweep_train(config=None):
-    """
+    '''
     Hyperparameter sweep train function. 
     Called by wandb agent.
-    """
+    '''
     
     # Initialize a new wandb run
     with wandb.init(config=config):
@@ -126,70 +175,74 @@ def sweep_train(config=None):
         model, optimizer, early_stopping, loss_fn = initialize_training(config=config)
        
         max_acc = 0
-        logging_index_train = 0
-        logging_index_forward_eval = 0
+        
         for epoch in range(opt.num_epochs):
-            model, logging_index_train, train_loss, train_acc = train_epoch(model, optimizer, loss_fn, train_loader, epoch, logging_index_train)
-            logging_index_forward_eval, stop_early, val_loss, val_acc = inf_epoch(model, loss_fn, valid_loader, early_stopping, logging_index_forward_eval)
+            model, _, _, _, val_acc, _ = train_epoch(model, optimizer, loss_fn, train_loader, valid_loader, epoch, early_stopping)
+
             if val_acc > max_acc:
                 max_acc = val_acc
-            wandb.log({
-                "train_loss": train_loss, 
-                "train_acc": train_acc,
-                "val_loss": val_loss,
-                "val_acc": val_acc,
-                "epoch": epoch}) 
 
-        model.save_model("test", config, vocab)
+        model_name = str(max_acc)+"_"+wandb.run.id +"_"+ wandb.run.name
+        model.save_model(model_name, config, vocab)
 
-def inf_epoch(model, loss_fn, dataloader, early_stopping, logging_index, testing=False):
-    """
-    Forward pass evaluation function.
-    Can be used for testing or validation.
-    """
-    if testing:
-        print("loading best model...")
-       
-        model.load_state_dict(torch.load('checkpoint.pt')) # load best model
+def test_epoch(model, loss_fn, dataloader):
+    '''
+    Forward pass evaluation for testing
+    '''
 
-        if opt.save_model:
-            model.save_model(run_name="test2", vocab=vocab)
+    
+    print("loading best model...")
+    
+    model.load_state_dict(torch.load('checkpoint.pt')) # load best model
 
-    val_h = model.init_hidden(batch_size)
-    val_losses = []
-    val_acc = 0.0
+    if opt.save_model:
+        model.save_model(run_name="test2", vocab=vocab)
+
+    inf_h = model.init_hidden(batch_size)
+    inf_losses = []
+    inf_acc = 0.0
     model.eval()
-
-    stop_early = False
 
     with torch.no_grad():
 
         for inputs, labels in dataloader:
-            val_h = tuple([each.data for each in val_h])
+            if inputs.size()[0] == opt.batch_size:
+                inf_h = tuple([each.data for each in inf_h])
 
-            inputs, labels = inputs.to(opt.device), labels.to(opt.device)
+                inputs, labels = inputs.to(opt.device), labels.to(opt.device)
 
-            output, val_h = model(inputs, val_h)
-            val_loss = loss_fn(output.squeeze(), labels.float())
+                output, inf_h = model(inputs, inf_h)
+                inf_loss = loss_fn(output,labels)
 
-            val_losses.append(val_loss.item())
-            
-            accuracy = metrics.acc(output,labels)
-            val_acc += accuracy
+                inf_losses.append(inf_loss.item())
+                
+                accuracy = metrics.acc(output,labels)
+                if opt.wandb_logging or opt.sweep:
+                    wandb.log({
+                            "test_loss": inf_loss.item(), 
+                            "test_acc": accuracy})
+
+                inf_acc += accuracy
+
+
+
+    inf_acc = inf_acc/len(dataloader)
+    inf_loss =  sum(inf_losses)/len(inf_losses)
         
-        early_stopping(np.mean(val_losses), model)
+    print("Test acc: ", inf_acc)
+    print("Test loss: ", inf_loss)
 
-        if early_stopping.early_stop:
-            print("Early stopping")
-            stop_early = True
-
-        return logging_index, stop_early, np.mean(val_losses), (val_acc/len(dataloader.dataset))
+    return inf_loss, inf_acc
     
 def initialize_training(config):
+    '''
+    Init model, optimizer and criterion
+    '''
+
     no_layers = config.num_layers
-    vocab_size = len(vocab) + 1 #extra 1 for padding
+    vocab_size = len(vocab) + 2 # +2 for padding and unknown
     embedding_dim = config.embedding_dim
-    output_dim = 1
+    output_dim = opt.num_classes
     hidden_dim = config.hidden_size
     lr = config.learning_rate
     dropout = config.dropout
@@ -203,41 +256,30 @@ def initialize_training(config):
     elif config.optimizer == "SGD":
         optimizer = torch.optim.SGD(network.parameters(), lr=lr)
     elif config.optimizer == "AdamW":
-        optimizer = torch.optim.adamw(network.parameters(), lr=lr)
+        optimizer = torch.optim.AdamW(network.parameters(), lr=lr)
     else:
         raise ValueError("Optimizer not recognized. Please choose from Adam, SGD or AdamW.")
     
-    early_stopping = EarlyStopping(patience=opt.num_epochs, verbose=True)
+    early_stopping = EarlyStopping(patience=opt.patience, verbose=True)
 
     # Initialize the loss here
-    loss_fn = nn.BCELoss()
+    loss_fn = nn.NLLLoss(class_weights.to(opt.device))
 
     return network, optimizer, early_stopping, loss_fn
 
 def main():
     if not opt.sweep:
-        logging_index_train = 0
-        logging_index_forward_eval = 0
 
         model,optimizer, early_stopping, loss_fn = initialize_training(config=opt)
         for epoch in range(1, opt.num_epochs+1):
 
-            model, logging_index_train, train_loss, train_acc = train_epoch(model, optimizer, loss_fn, train_loader,epoch, logging_index_train)
-            print("\nTrain:")
-            print(train_loss)
-            print(train_acc)
-            logging_index_forward_eval, stop_early, val_loss, val_acc = inf_epoch(model, loss_fn, valid_loader, early_stopping, logging_index_forward_eval)
-            print("Val:")
-            print(val_loss)
-            print(val_acc)
+            model, _, _, _, _, stop_early = train_epoch(model, optimizer, loss_fn, train_loader, valid_loader, epoch, early_stopping)
 
             # cut off training if early stopping is triggered
             if stop_early:
                 break
 
-        logging_index_forward_eval = 0 
-
-        inf_epoch(model, loss_fn, valid_loader, early_stopping, logging_index_forward_eval, testing=True)
+        _, _, = test_epoch(model, loss_fn, valid_loader)
     else:
-        wandb.agent(sweep_id, sweep_train, count=50)
+        wandb.agent(sweep_id, sweep_train, count=100)
 main()

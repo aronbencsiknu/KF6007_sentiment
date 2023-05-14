@@ -6,22 +6,22 @@ class SweepHandler():
     def __init__(self):
 
         self.metric = {
-        'name': 'loss',
+        'name': 'val_loss',
         'goal': 'minimize'   
         }
 
         self.parameters_dict = {
         'num_layers': {
-            'values': [1, 2, 3, 4]
+            'values': [1, 2, 3]
             },
         'hidden_size': {
-            'values': [32, 64, 128, 256, 512]
+            'values': [64, 128, 256]
             },
         'embedding_dim': {
-            'values': [32, 64, 128, 256, 512]
+            'values': [64, 128, 256]
         },
         'dropout': {
-                'values': [0.3, 0.4, 0.5]
+                'values': [0.3, 0.4, 0.5, 0.6]
             },
         'learning_rate': {
             'values': [0.01, 0.001, 0.0005, 0.0001]
