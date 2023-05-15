@@ -38,7 +38,7 @@ python main.py
 | `-wb` or `--wandb_logging`  | Enable logging to Weights&Biases. |
 | `--wandb_project`  | Weights&Biases project name. |
 | `--wandb_entity`  | Weights&Biases entity name. |
-| `--wandb_key`  | Weights&Biases entity name. |
+| `--wandb_key`  | Weights&Biases API key |
 | `--load_name`  | Name of the model, hyperparameter dictionary, and gain values to load. |
 | `--num_epochs` | Number of epochs to train for. |
 | `--batch_size` | Batch size. |
