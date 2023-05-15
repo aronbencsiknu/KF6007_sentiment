@@ -15,14 +15,17 @@ pip3 install -r requirements.txt
 
 ## Examples
 
-### Load a pre-trained model and run testing
 Run the GUI:
 ```
 python gui.py
 ```
 Train a new model:
 ```
-python train.py
+python main.py
+```
+Test a pre-trained model:
+```
+python main.py
 ```
 
 ## Options
