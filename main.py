@@ -55,7 +55,7 @@ metrics = Metrics(num_classes=opt.num_classes)
 if opt.wandb_logging or opt.sweep:
   print("\n#########################################")
   print("#########################################\n")
-  print("!!IMPORTANT!! You need to create a WandB account and paste your authorization key in options.py to use this.")
+  print("!!IMPORTANT!! You need to create a WandB account including the API key with the --wandb_key flag")
   print("\n#########################################")
   print("#########################################\n")
 
