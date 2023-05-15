@@ -2,59 +2,110 @@ import torch
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
+from construct_dataset import idx_to_class
 
 class Metrics():
-    def __init__(self):
+    def __init__(self, num_classes):
+        self.confusion_matrix = torch.zeros(num_classes, num_classes)
         self.TP = 0
         self.FP = 0
         self.TN = 0
         self.FN = 0
 
-    def display_report(self, target, predicted):
-        self.perf_measure(target, predicted)
+    def display_report(self):
 
+        self.calculate_tp_fp_tn_fn()
         precision = self.precision()
         recall = self.recall()
         f1_score = self.f1_score()
-        accuracy = self.acc(target, predicted)
+        accuracy = self.accuracy()
 
-        confusion_matrix = confusion_matrix(target, predicted)
+        print("\nAccuracy: ", accuracy)
+        print("Precision: ", precision)
+        print("Recall: ", recall)
+        print("F1 Score: ", f1_score)
+    
+        # display confusion matrix
+        self.confusion_matrix = self.confusion_matrix.numpy()
+        normalized_matrix = self.confusion_matrix.astype('float') / self.confusion_matrix.sum(axis=1)[:, np.newaxis]
 
-        # display here
+        # Create a figure and plot the original confusion matrix
+        plt.figure(figsize=(5,10))
+        plt.subplot(2, 1, 1)
+        sns.heatmap(self.confusion_matrix, annot=True, linewidths=.5, square=True, fmt='g', cmap='viridis')
+        plt.ylabel('Actual label')
+        plt.xlabel('Predicted label')
+        plt.title('Confusion matrix')
+
+        # Plot the normalized confusion matrix
+        plt.subplot(2, 1, 2)
+        sns.heatmap(normalized_matrix, annot=True, linewidths=.5, square=True, fmt='.2f', cmap='viridis')
+        plt.ylabel('Actual label')
+        plt.xlabel('Predicted label')
+        plt.title('Normalized Confusion matrix')
+
+        # Adjust the layout and display the figure
+        plt.tight_layout()
+        plt.show()
+
     
     # calculate the confusion matrix
-    def perf_measure(self, targets, predicted):
-        for i in range(len(predicted)): 
-            if targets[i] == predicted[i] == 1:
-                self.TP += 1
-            if predicted[i] == 1 and targets[i] != predicted[i]:
-                self.FP += 1
-            if targets[i] == predicted[i] == 0:
-                self.TN += 1
-            if predicted[i] == 0 and targets[i] != predicted[i]:
-                self.FN += 1
+    def increment_confusion_matrix(self, target, logps):
+        top_class = self.get_predicted(logps)
+        self.confusion_matrix += confusion_matrix(target, top_class)
+      
+    def calculate_tp_fp_tn_fn(self):
+        self.FP = np.asarray(self.confusion_matrix.sum(axis=0)) - np.diag(self.confusion_matrix)
+        self.FN = np.asarray(self.confusion_matrix.sum(axis=1)) - np.diag(self.confusion_matrix)
+        self.TP = np.diag(self.confusion_matrix)
+        self.TN = np.diag(self.confusion_matrix).sum() - np.diag(self.confusion_matrix)
 
-        
+        print("\nTP: ", self.TP)
+        print("FP: ", self.FP)
+        print("TN: ", self.TN)
+        print("FN: ", self.FN)
+
     # calculate the precision
-    def precision(self):
-        return self.TP/(self.TP+self.FP+1e-8)
+    def precision(self, average=True):
+        
+        precision = self.TP/(self.TP+self.FP)
+        if average:
+            return np.average(precision)
+        return precision
 
     # calculate the recall
-    def recall(self):
-        return self.TP/(self.TP+self.FN+1e-8)
+    def recall(self, average=True):
+        recall = self.TP/(self.TP+self.FN)
+        if average:
+            return np.average(recall)
+        return recall
     
     # calculate the harmonic mean of precision and recall
-    def f1_score(self):
-        return 2*(self.precision()*self.recall())/(self.precision()+self.recall()+1e-8)
+    def f1_score(self, average=True):
+        f1_score = 2*(self.precision()*self.recall())/(self.precision()+self.recall())
+        if average:
+            return np.average(f1_score)
+        return f1_score
 
-    # calculate the accuracy
+    # calculate the accuracy of entire dataset
+    def accuracy(self, average=True):
+        accuracy = (self.TP+self.TN)/(self.TP+self.FP+self.FN+self.TN)
+        if average:
+            return np.average(accuracy)
+        return accuracy
+    
+    # calculate the accuracy during training
     def acc(self, logps=None, labels=None):
-        ps = torch.exp(logps)
-        top_p, top_class = ps.topk(1, dim=1)
+        top_class = self.get_predicted(logps)
         equals = top_class == labels.view(*top_class.shape)
         
         return torch.mean(equals.type(torch.FloatTensor)).item()
     
+    def get_predicted(self, logps):
+        ps = torch.exp(logps)
+        _, top_class = ps.topk(1, dim=1)
+        return top_class
     
 
         

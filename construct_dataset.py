@@ -12,7 +12,6 @@ def load_data():
     '''
 
     data = pd.read_csv('data/twitter.csv')
-
     X,y = data['text'].fillna('').values,data['sentiment'].fillna(0).values # replace NaN with empty string for data and 0 for target
 
     return X,y
@@ -49,26 +48,46 @@ def generate_vocabulary(X, vocab_len=1000):
 
     return onehot_dict
 
-def tokenize(X, y, vocab):
+def class_to_idx(y):
     '''
-    Tokenize dataset
-    Map labels
+    Map class to index
     '''
 
     classes = [-1, 0, 1]
-    # class to index and index to class mappings
     idx_to_class = {i:j for i, j in enumerate(classes)}
     class_to_idx = {value:key for key,value in idx_to_class.items()}
+    y_final = [class_to_idx[label] for label in y]
+
+    return y_final
+
+def idx_to_class(y):
+    '''
+    Map index to class
+    '''
+    
+    classes = ["Negative", "Neutral", "Positive"]
+    idx_to_class = {i:j for i, j in enumerate(classes)}
+    y_final = [idx_to_class[label] for label in [y]]
+
+    return y_final
+
+def tokenize(X, y, vocab):
+    '''
+    Tokenize dataset
+    '''
+
+    # class to index and index to class mappings
+    """idx_to_class = {i:j for i, j in enumerate(classes)}
+    class_to_idx = {value:key for key,value in idx_to_class.items()}"""
     X_final = []
     for sent in X:
             # tokenize words, if not found add <unk> token <unk> is vocab length + 1
             X_final.append([vocab[preprocess_string(word)] if preprocess_string(word) in vocab.keys() else len(vocab)+1 
                for word in sent.lower().split()])
             
-    y_final = [class_to_idx[label] for label in y]
+    y_final = class_to_idx(y)
     
     return np.array(X_final), np.array(y_final)
-
 
 def pad_items(sentences, seq_len):
     '''

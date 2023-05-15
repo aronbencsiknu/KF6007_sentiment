@@ -9,8 +9,9 @@ class Options(object):
     def add_args(self):
 
         self.argparser.add_argument("-sm", "--save_model", action='store_true', help="Save the model when finished training")
-        self.argparser.add_argument("-ld", "--load_model_dict", action='store_true', help="Load a model hyperparameter dictionary")
+        self.argparser.add_argument("-lm", "--load_model", action='store_true', help="Load a model hyperparameter dictionary")
         self.argparser.add_argument("-sw", "--sweep", action='store_true', help="Perform a hyperparameter sweep with Weights&Biases")
+        self.argparser.add_argument("-t", "--test", action='store_true', help="Perform a hyperparameter sweep with Weights&Biases")
 
         # ----------------------------
         
@@ -18,7 +19,7 @@ class Options(object):
         self.argparser.add_argument("--wandb_project", type=str, default="lstm_sentiment", help="Weights&Biases project name")
         self.argparser.add_argument("--wandb_entity", type=str, default="aronbencsik", help="Weights&Biases entity name")
         self.argparser.add_argument("--wandb_key", type=str, default="aronbencsik", help="Weights&Biases entity name")
-        self.argparser.add_argument("--load_name", type=str, default="final", help="Name of the model, hyperparameter dictionary and gain values to load")
+        self.argparser.add_argument("--load_name", type=str, default="0.7900114528795812_pstbnim8_proud-sweep-1", help="Name of the model, hyperparameter dictionary and gain values to load")
         self.argparser.add_argument("--num_epochs", type=int, default=100, help="Number of epochs to train for")
         self.argparser.add_argument("--batch_size", type=int, default=128, help="Batch size")
         self.argparser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate of the optimizer")

@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter.ttk import Button, Style, Entry
 from PIL import ImageTk, Image
-import emoji
 import model
 import construct_dataset
 import torch
@@ -10,11 +9,7 @@ from options import Options
 
 opt = Options().parse()
 
-if opt.load_model_dict:
-    config = None
-else:
-     config = opt
-model, vocab = model.load_model("test2", "cpu", opt.num_classes, config)
+model, vocab = model.load_model(opt.load_name, "cpu", opt.num_classes)
 model.to("cpu")
 
 model.eval()
@@ -31,12 +26,9 @@ def predict_text(text):
         logps, h = model(inputs, h)
         ps = torch.exp(logps)
         top_p, top_class = ps.topk(1, dim=1)
-        if top_class == 0:
-            status = "negative"
-        elif top_class == 1:
-            status = "neutral"
-        else:
-            status = "positive"
+
+        status = construct_dataset.idx_to_class(top_class.item())[0]
+
         print("Prediction:", status)
         print("confidence", top_p.item())
         return status
@@ -59,9 +51,9 @@ def display_emoji(status):
     x = 200
     y = 100
     
-    if status == "positive":
+    if status == "Positive":
         image_path = "emojis/happy.png"  # Replace with the path to your positive emoji image
-    elif status == "neutral":
+    elif status == "Neutral":
         image_path = "emojis/neutral.png"  # Replace with the path to your neutral emoji image
     else:
         image_path = "emojis/sad.png"  # Replace with the path to your negative emoji image
