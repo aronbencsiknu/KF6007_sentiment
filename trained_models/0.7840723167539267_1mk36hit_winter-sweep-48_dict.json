@@ -1,1 +1,0 @@
-{"dropout": 0.6, "embedding_dim": 128, "hidden_size": 256, "learning_rate": 0.01, "num_layers": 1, "optimizer": "AdamW", "_wandb": {}}
