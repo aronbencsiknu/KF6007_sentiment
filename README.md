@@ -2,7 +2,7 @@
 
 ## Setup
 
-Create conda environment:
+Create the conda environment:
 ```
 conda env create -f environment.yml
 conda activate lstm_aronbencsik
@@ -25,7 +25,7 @@ python main.py
 ```
 Test a pre-trained model:
 ```
-python main.py
+python main.py -t
 ```
 
 ## Options
