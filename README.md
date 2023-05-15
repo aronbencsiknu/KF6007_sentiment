@@ -33,8 +33,8 @@ python main.py
 | Argument  | Description |
 | ------------- | ------------- |
 | `-sm` or `--save_model`  | Save the model when finished training. |
-| `-ld` or `--load_model_dict`  | Load a model hyperparameter dictionary. |
 | `-sw` or `--sweep`  | Perform a hyperparameter sweep with Weights&Biases. |
+| `-t` or `--test`  | Test the model |
 | `-wb` or `--wandb_logging`  | Enable logging to Weights&Biases. |
 | `--wandb_project`  | Weights&Biases project name. |
 | `--wandb_entity`  | Weights&Biases entity name. |
