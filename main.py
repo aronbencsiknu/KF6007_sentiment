@@ -1,7 +1,6 @@
 # global imports
 import wandb
 import torch
-import model as m
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.model_selection import train_test_split
 from torch import nn
@@ -12,7 +11,8 @@ import construct_dataset
 from early_stopping import EarlyStopping
 from sweep import SweepHandler
 from options import Options
-from model import RNN
+import architecture
+from architecture import RNN
 from metrics import Metrics
 
 opt = Options().parse()
@@ -92,6 +92,7 @@ def train_epoch(model, optimizer, loss_fn, train_loader, valid_loader, epoch, ea
     train_acc = 0.0
     val_losses = []
     val_acc = 0.0
+
     # initialize hidden state 
     h = model.init_hidden(opt.batch_size)
 
@@ -106,24 +107,22 @@ def train_epoch(model, optimizer, loss_fn, train_loader, valid_loader, epoch, ea
         model.train()
         if inputs.size()[0] == opt.batch_size:
             inputs, labels = inputs.to(opt.device), labels.to(opt.device)   
-            # Creating new variables for the hidden state, otherwise
-            # we'd backprop through the entire training history
+
             h = tuple([each.data for each in h])
             model.zero_grad()
             output,h = model(inputs,h)
             
-            # calculate the loss and perform backprop
             loss = loss_fn(output, labels)
             loss.backward()
             train_losses.append(loss.item())
-            # calculating accuracy
             accuracy = metrics.acc(output,labels)
+
             if opt.wandb_logging or opt.sweep:
                 wandb.log({
                     "train_loss": loss.item(), 
                     "train_acc": accuracy})
             train_acc += accuracy
-            #`clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
+            
             nn.utils.clip_grad_norm_(model.parameters(), clip)
             optimizer.step()
 
@@ -207,7 +206,9 @@ def test_epoch(model, loss_fn):
             model.save_model(run_name=opt.save_name, vocab=vocab)
     else:
         print("loading model...")
-        model, vocab = m.load_model(opt.load_name, "cpu", opt.num_classes)
+        model, vocab = architecture.load_model(opt.load_name, opt.device, opt.num_classes)
+        model = model.to(opt.device)
+        
         _, dataloader, vocab, _ = make_loaders(vocab)    
 
     inf_h = model.init_hidden(opt.batch_size)
@@ -216,9 +217,11 @@ def test_epoch(model, loss_fn):
     model.eval()
 
     with torch.no_grad():
-
+        title = "Progress: "
+        bar = ShadyBar(title, max=len(dataloader))
         for inputs, labels in dataloader:
             if inputs.size()[0] == opt.batch_size:
+                bar.next()
                 inf_h = tuple([each.data for each in inf_h])
 
                 inputs, labels = inputs.to(opt.device), labels.to(opt.device)
@@ -229,6 +232,7 @@ def test_epoch(model, loss_fn):
                 inf_losses.append(inf_loss.item())
                 metrics.increment_confusion_matrix(labels, output)
 
+    bar.finish()
     inf_loss =  sum(inf_losses)/len(inf_losses)
 
     metrics.display_report()

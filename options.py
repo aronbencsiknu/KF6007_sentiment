@@ -19,7 +19,7 @@ class Options(object):
         self.argparser.add_argument("--wandb_project", type=str, default="lstm_sentiment", help="Weights&Biases project name")
         self.argparser.add_argument("--wandb_entity", type=str, default="aronbencsik", help="Weights&Biases entity name")
         self.argparser.add_argument("--wandb_key", type=str, default="aronbencsik", help="Weights&Biases entity name")
-        self.argparser.add_argument("--load_name", type=str, default="0.7900114528795812_pstbnim8_proud-sweep-1", help="Name of the model, hyperparameter dictionary and gain values to load")
+        self.argparser.add_argument("--load_name", type=str, default="final", help="Name of the model, hyperparameter dictionary and gain values to load")
         self.argparser.add_argument("--num_epochs", type=int, default=100, help="Number of epochs to train for")
         self.argparser.add_argument("--batch_size", type=int, default=128, help="Batch size")
         self.argparser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate of the optimizer")
@@ -42,8 +42,9 @@ class Options(object):
             self.add_args()
         self.opt = self.argparser.parse_args()
 
-        self.opt.wandb_key = "edfb94e4b9dca47c397a343d2829e9af262d9e32"
         self.opt.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        if self.opt.test:
+            self.opt.device = torch.device("cpu")
         
         if self.opt.sweep:
             self.opt.patience = self.opt.num_epochs

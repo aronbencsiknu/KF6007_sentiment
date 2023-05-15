@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter.ttk import Button, Style, Entry
 from PIL import ImageTk, Image
-import model
+import architecture
 import construct_dataset
 import torch
 import numpy as np
@@ -9,10 +9,10 @@ from options import Options
 
 opt = Options().parse()
 
-model, vocab = model.load_model(opt.load_name, "cpu", opt.num_classes)
-model.to("cpu")
+architecture, vocab = architecture.load_model(opt.load_name, "cpu", opt.num_classes)
+architecture.to("cpu")
 
-model.eval()
+architecture.eval()
 
 def predict_text(text):
         word_seq = np.array([vocab[construct_dataset.preprocess_string(word)] for word in text.split() 
@@ -21,9 +21,9 @@ def predict_text(text):
         pad =  torch.from_numpy(construct_dataset.pad_items(word_seq,opt.pad_length))
         inputs = pad.to("cpu")
         batch_size = 1
-        h = model.init_hidden(batch_size)
+        h = architecture.init_hidden(batch_size)
         h = tuple([each.data for each in h])
-        logps, h = model(inputs, h)
+        logps, h = architecture(inputs, h)
         ps = torch.exp(logps)
         top_p, top_class = ps.topk(1, dim=1)
 
@@ -93,7 +93,7 @@ button.pack(pady=30)
 canvas = tk.Canvas(window, width=400, height=250)
 canvas.pack()
 
-display_emoji("neutral")
+display_emoji("Neutral")
 
 # Run the GUI event loop
 window.mainloop()
