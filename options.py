@@ -9,9 +9,8 @@ class Options(object):
     def add_args(self):
 
         self.argparser.add_argument("-sm", "--save_model", action='store_true', help="Save the model when finished training")
-        self.argparser.add_argument("-lm", "--load_model", action='store_true', help="Load a model hyperparameter dictionary")
         self.argparser.add_argument("-sw", "--sweep", action='store_true', help="Perform a hyperparameter sweep with Weights&Biases")
-        self.argparser.add_argument("-t", "--test", action='store_true', help="Perform a hyperparameter sweep with Weights&Biases")
+        self.argparser.add_argument("-t", "--test", action='store_true', help="Test the model")
 
         # ----------------------------
         

@@ -77,8 +77,6 @@ def tokenize(X, y, vocab):
     '''
 
     # class to index and index to class mappings
-    """idx_to_class = {i:j for i, j in enumerate(classes)}
-    class_to_idx = {value:key for key,value in idx_to_class.items()}"""
     X_final = []
     for sent in X:
             # tokenize words, if not found add <unk> token <unk> is vocab length + 1
