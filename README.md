@@ -1,5 +1,7 @@
 # Sentiment Analysis Using Long Short-Term Memory Neural Networks
 
+[Project Report](https://drive.google.com/file/d/1yvUE4Sh87V2wYN6ALwlu4HoKAXnONpur/view?usp=sharing) 
+
 ## Setup
 
 Create the conda environment:
